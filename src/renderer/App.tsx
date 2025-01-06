@@ -4,6 +4,8 @@ const { ipcRenderer } = window.require('electron');
 interface BrowserConfig {
   id: string;
   name: string;
+  chromePath?: string;
+  userAgent?: string;
 }
 
 interface BrowserStatus {
@@ -63,6 +65,8 @@ function App() {
   const [configs, setConfigs] = useState<BrowserConfig[]>([]);
   const [instanceStatuses, setInstanceStatuses] = useState<Map<string, BrowserStatus>>(new Map());
   const [newName, setNewName] = useState<string>('');
+  const [newChromePath, setNewChromePath] = useState<string>('');
+  const [newUserAgent, setNewUserAgent] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
@@ -149,6 +153,16 @@ function App() {
     }
   };
 
+  const handleGenerateUserAgent = async () => {
+    try {
+      const result = await ipcRenderer.invoke('generate-user-agent');
+      setNewUserAgent(result);
+    } catch (error) {
+      showError('生成User Agent失败');
+      console.error('Failed to generate user agent:', error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = newName.trim();
@@ -171,7 +185,9 @@ function App() {
       setActionInProgress('saving');
       const config: BrowserConfig = {
         id: Date.now().toString(),
-        name: name
+        name: name,
+        chromePath: newChromePath.trim() || undefined,
+        userAgent: newUserAgent.trim() || undefined
       };
       
       const result = await ipcRenderer.invoke('save-browser-config', config);
@@ -182,6 +198,8 @@ function App() {
 
       await loadConfigs();
       setNewName('');
+      setNewChromePath('');
+      setNewUserAgent('');
     } catch (error) {
       showError(error instanceof Error ? error.message : '保存配置失败');
       console.error('Failed to save config:', error);
@@ -272,36 +290,90 @@ function App() {
       
       <div style={{ marginBottom: '20px' }}>
         <h2>添加新实例</h2>
-        <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <input
-            type="text"
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-            placeholder="输入实例名称"
-            required
-            disabled={actionInProgress === 'saving'}
-            style={{
-              padding: '8px',
-              borderRadius: '4px',
-              border: '1px solid #ccc',
-              width: '200px'
-            }}
-          />
-          <button 
-            type="submit" 
-            disabled={actionInProgress === 'saving'}
-            style={{
-              backgroundColor: '#1976d2',
-              color: 'white',
-              border: 'none',
-              padding: '8px 16px',
-              borderRadius: '4px',
-              cursor: actionInProgress === 'saving' ? 'not-allowed' : 'pointer',
-              opacity: actionInProgress === 'saving' ? 0.7 : 1
-            }}
-          >
-            {actionInProgress === 'saving' ? '添加中...' : '添加实例'}
-          </button>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '500px' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <input
+              type="text"
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              placeholder="输入实例名称"
+              required
+              disabled={actionInProgress === 'saving'}
+              style={{
+                padding: '8px',
+                borderRadius: '4px',
+                border: '1px solid #ccc',
+                flex: 1
+              }}
+            />
+          </div>
+          
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <input
+              type="text"
+              value={newChromePath}
+              onChange={e => setNewChromePath(e.target.value)}
+              placeholder="Chrome浏览器路径（可选）"
+              disabled={actionInProgress === 'saving'}
+              style={{
+                padding: '8px',
+                borderRadius: '4px',
+                border: '1px solid #ccc',
+                flex: 1
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <input
+              type="text"
+              value={newUserAgent}
+              onChange={e => setNewUserAgent(e.target.value)}
+              placeholder="User Agent（可选）"
+              disabled={actionInProgress === 'saving'}
+              style={{
+                padding: '8px',
+                borderRadius: '4px',
+                border: '1px solid #ccc',
+                flex: 1
+              }}
+            />
+            <button
+              type="button"
+              onClick={handleGenerateUserAgent}
+              disabled={actionInProgress === 'saving'}
+              style={{
+                backgroundColor: '#4caf50',
+                color: 'white',
+                border: 'none',
+                padding: '8px 16px',
+                borderRadius: '4px',
+                cursor: actionInProgress === 'saving' ? 'not-allowed' : 'pointer',
+                opacity: actionInProgress === 'saving' ? 0.7 : 1,
+                whiteSpace: 'nowrap'
+              }}
+            >
+              生成
+            </button>
+          </div>
+
+          <div>
+            <button 
+              type="submit" 
+              disabled={actionInProgress === 'saving'}
+              style={{
+                backgroundColor: '#1976d2',
+                color: 'white',
+                border: 'none',
+                padding: '8px 16px',
+                borderRadius: '4px',
+                cursor: actionInProgress === 'saving' ? 'not-allowed' : 'pointer',
+                opacity: actionInProgress === 'saving' ? 0.7 : 1
+              }}
+            >
+              {actionInProgress === 'saving' ? '添加中...' : '添加实例'}
+            </button>
+          </div>
         </form>
       </div>
 
@@ -321,11 +393,31 @@ function App() {
             <div style={{ 
               display: 'flex', 
               justifyContent: 'space-between', 
-              alignItems: 'center',
+              alignItems: 'flex-start',
               marginBottom: '10px'
             }}>
               <div>
-                <h3 style={{ margin: 0 }}>{config.name}</h3>
+                <h3 style={{ margin: '0 0 5px 0' }}>{config.name}</h3>
+                {config.chromePath && (
+                  <div style={{ 
+                    fontSize: '12px',
+                    color: '#666',
+                    marginBottom: '5px',
+                    maxWidth: '600px',
+                  }}>
+                    Chrome路径: {config.chromePath}
+                  </div>
+                )}
+                {config.userAgent && (
+                  <div style={{ 
+                    fontSize: '12px',
+                    color: '#666',
+                    marginBottom: '5px',
+                    maxWidth: '600px',
+                  }}>
+                    User Agent: {config.userAgent}
+                  </div>
+                )}
                 <StatusDisplay status={instanceStatuses.get(config.id) || null} />
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>

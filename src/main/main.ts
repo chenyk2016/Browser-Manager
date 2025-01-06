@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import * as path from 'path';
 import { browserManager } from './browserManager';
+import { generateUserAgent } from './utils';
 
 // 获取应用根目录
 const APP_PATH = app.isPackaged 
@@ -35,6 +36,11 @@ let mainWindow: BrowserWindow | null = null;
 
 // 设置IPC处理器
 function setupIpcHandlers() {
+  // 生成User Agent
+  ipcMain.handle('generate-user-agent', () => {
+    return generateUserAgent();
+  });
+
   // 获取浏览器配置列表
   ipcMain.handle('get-browser-configs', async () => {
     try {

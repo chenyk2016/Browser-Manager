@@ -362,7 +362,7 @@ class BrowserManager extends EventEmitter {
 
       // 4. 启动浏览器
       console.debug(`Launching browser with Puppeteer`);
-      const chromePath = getChromePath();
+      const chromePath = getChromePath(config.chromePath);
       console.debug(`Chrome executable path: ${chromePath}`);
       
       // 验证Chrome路径
@@ -372,29 +372,31 @@ class BrowserManager extends EventEmitter {
 
       let browser: Browser;
       try {
+        const args = [
+          '--disable-backgrounding-occluded-windows', // 禁用窗口遮挡时的后台处理
+          '--disable-breakpad', // 禁用崩溃报告
+          '--disable-component-extensions-with-background-pages', // 禁用带后台页面的组件扩展
+          '--disable-features=TranslateUI', // 禁用翻译提示
+          '--disable-renderer-backgrounding', // 禁用渲染器后台处理
+          '--autoplay-policy=user-gesture-required', // 要求用户手势才能自动播放
+          '--disable-client-side-phishing-detection', // 禁用客户端钓鱼检测
+          '--disable-sync', // 禁用Chrome同步功能
+          '--no-default-browser-check', // 禁用默认浏览器检查
+          '--window-size=1280,720', // 设置默认窗口大小
+          '--window-position=50,50', // 设置初始窗口位置
+        ];
+
+        // 添加 user agent 参数
+        if (config.userAgent) {
+          args.push(`--user-agent=${config.userAgent}`);
+        }
+
         browser = await puppeteer.launch({
           executablePath: chromePath,
           userDataDir,
           headless: false,
           defaultViewport: null, // 让窗口大小由操作系统/用户决定
-          args: [
-            '--disable-dev-shm-usage', // 禁用/dev/shm使用,提高稳定性
-            '--disable-gpu', // 禁用GPU硬件加速
-            '--no-first-run', // 跳过首次运行向导
-            '--disable-notifications', // 禁用通知提示
-            '--disable-background-timer-throttling', // 禁用后台计时器限制
-            '--disable-backgrounding-occluded-windows', // 禁用窗口遮挡时的后台处理
-            '--disable-breakpad', // 禁用崩溃报告
-            '--disable-component-extensions-with-background-pages', // 禁用带后台页面的组件扩展
-            '--disable-features=TranslateUI', // 禁用翻译提示
-            '--disable-renderer-backgrounding', // 禁用渲染器后台处理
-            '--autoplay-policy=user-gesture-required', // 要求用户手势才能自动播放
-            '--disable-client-side-phishing-detection', // 禁用客户端钓鱼检测
-            '--disable-sync', // 禁用Chrome同步功能
-            '--no-default-browser-check', // 禁用默认浏览器检查
-            '--window-size=1280,720', // 设置默认窗口大小
-            '--window-position=50,50', // 设置初始窗口位置
-          ],
+          args: args,
           ignoreDefaultArgs: ['--enable-automation'], // 隐藏自动化提示
         });
 

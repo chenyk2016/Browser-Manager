@@ -2,6 +2,30 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { BrowserConfig } from './types';
 
+export function generateUserAgent(): string {
+  const chromeVersions = ['114.0.0.0', '115.0.0.0', '116.0.0.0', '117.0.0.0', '118.0.0.0', '119.0.0.0'];
+  const platforms = {
+    win: {
+      os: 'Windows NT 10.0; Win64; x64',
+      platform: 'Windows'
+    },
+    mac: {
+      os: 'Macintosh; Intel Mac OS X 10_15_7',
+      platform: 'macOS'
+    },
+    linux: {
+      os: 'X11; Linux x86_64',
+      platform: 'Linux'
+    }
+  } as const;
+
+  const randomChrome = chromeVersions[Math.floor(Math.random() * chromeVersions.length)];
+  const platformKeys = ['win', 'mac', 'linux'] as const;
+  const randomPlatform = platforms[platformKeys[Math.floor(Math.random() * platformKeys.length)] as keyof typeof platforms];
+
+  return `Mozilla/5.0 (${randomPlatform.os}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${randomChrome} Safari/537.36`;
+}
+
 export async function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 2000): Promise<T> {
   return Promise.race([
     promise,
@@ -9,7 +33,29 @@ export async function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 20
   ]);
 }
 
-export function getChromePath(): string {
+export function getChromePath(customPath?: string): string {
+  // 如果提供了自定义路径且路径存在，优先使用自定义路径
+  if (customPath) {
+    try {
+      const stats = fs.statSync(customPath);
+      if (stats.isFile()) {
+        if (process.platform !== 'win32') {
+          const mode = stats.mode;
+          if ((mode & 0o111) !== 0) {
+            console.debug(`Using custom Chrome path: ${customPath}`);
+            return customPath;
+          }
+        } else {
+          console.debug(`Using custom Chrome path: ${customPath}`);
+          return customPath;
+        }
+      }
+    } catch (error) {
+      console.debug(`Custom Chrome path not valid: ${customPath}`);
+    }
+  }
+
+  // 默认路径查找
   const platform = process.platform;
   let paths: string[] = [];
 
@@ -38,13 +84,11 @@ export function getChromePath(): string {
   // 验证每个路径
   for (const chromePath of paths) {
     try {
-      // 检查文件是否存在且可执行
       const stats = fs.statSync(chromePath);
       if (stats.isFile()) {
-        // 在macOS和Linux上检查可执行权限
         if (platform !== 'win32') {
           const mode = stats.mode;
-          if ((mode & 0o111) !== 0) { // 检查是否有执行权限
+          if ((mode & 0o111) !== 0) {
             console.debug(`Found executable Chrome at: ${chromePath}`);
             return chromePath;
           }
@@ -59,7 +103,7 @@ export function getChromePath(): string {
     }
   }
 
-  throw new Error('找不到Chrome浏览器，请确保已安装Google Chrome');
+  throw new Error('找不到Chrome浏览器，请确保已安装Google Chrome或提供正确的安装路径');
 }
 
 export function cleanUserDataDirectory(userDataDir: string) {

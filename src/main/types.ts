@@ -17,4 +17,6 @@ export interface BrowserInstance {
 export interface BrowserConfig {
   id: string;
   name: string;
+  chromePath?: string;
+  userAgent?: string;
 } 
